@@ -11,7 +11,6 @@ import {
   Lock,
 } from "lucide-react";
 import {
-  type Booking,
   type Room,
   type Result,
   MAX_MINUTES,
