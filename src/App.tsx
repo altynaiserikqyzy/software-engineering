@@ -10,23 +10,15 @@ import {
   Info,
   Lock,
 } from "lucide-react";
-
-type Booking = {
-  id: string;
-  start: string; // "HH:MM"
-  end: string; // "HH:MM"
-  bookedBy: string;
-  purpose: string;
-};
-
-type Room = {
-  id: string;
-  name: string;
-  building: string;
-  floor: number;
-  blocked: boolean;
-  bookings: Booking[];
-};
+import {
+  type Booking,
+  type Room,
+  type Result,
+  MAX_MINUTES,
+  toMinutes,
+  formatDuration,
+  checkAvailability,
+} from "@/lib/availability";
 
 // Fictional room data defined in source code.
 // To change a room's blocked status or bookings, edit this array directly.
@@ -67,105 +59,6 @@ const ROOMS: Room[] = [
     ],
   },
 ];
-
-const MAX_MINUTES = 120;
-const DAY_MINUTES = 24 * 60;
-
-function toMinutes(time: string): number {
-  if (!time || !time.includes(":")) return NaN;
-  const [h, m] = time.split(":").map(Number);
-  if (Number.isNaN(h) || Number.isNaN(m)) return NaN;
-  return h * 60 + m;
-}
-
-function formatDuration(mins: number): string {
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
-  if (h === 0) return `${m} min`;
-  if (m === 0) return `${h} hr`;
-  return `${h} hr ${m} min`;
-}
-
-// Overlap: reject if start < otherEnd AND end > otherStart. Touching endpoints allowed.
-function overlapsWith(startMin: number, endMin: number, bookings: Booking[]): Booking | null {
-  for (const b of bookings) {
-    const bStart = toMinutes(b.start);
-    const bEnd = toMinutes(b.end);
-    if (Number.isNaN(bStart) || Number.isNaN(bEnd)) continue;
-    if (startMin < bEnd && endMin > bStart) {
-      return b;
-    }
-  }
-  return null;
-}
-
-type Result =
-  | { status: "available" }
-  | { status: "unavailable"; reasons: string[] };
-
-function checkAvailability(
-  start: string,
-  end: string,
-  nowMin: number,
-  room: Room,
-): Result {
-  const reasons: string[] = [];
-
-  if (room.blocked) {
-    reasons.push("This room is currently blocked and cannot be booked.");
-  }
-
-  if (!start || !end) {
-    return { status: "unavailable", reasons: ["Please enter both a start and end time."] };
-  }
-
-  const startMin = toMinutes(start);
-  const endMin = toMinutes(end);
-
-  if (Number.isNaN(startMin) || Number.isNaN(endMin)) {
-    return { status: "unavailable", reasons: ["One or both times are not valid."] };
-  }
-
-  // Range / basic validity checks (AC5, AC1).
-  let rangeValid = true;
-  if (startMin < 0 || startMin > DAY_MINUTES) {
-    reasons.push("Start time must be within the same day (00:00–24:00).");
-    rangeValid = false;
-  }
-  if (endMin < 0 || endMin > DAY_MINUTES) {
-    reasons.push("End time must be within the same day (00:00–24:00).");
-    rangeValid = false;
-  }
-  if (endMin <= startMin) {
-    reasons.push("End time must be later than the start time.");
-    rangeValid = false;
-  }
-  if (startMin <= nowMin) {
-    reasons.push("Start time must be strictly later than the current time.");
-  }
-
-  // Only evaluate duration and overlap when the time range is structurally valid.
-  if (rangeValid) {
-    const duration = endMin - startMin;
-    if (duration > MAX_MINUTES) {
-      reasons.push(
-        `Requested duration is ${formatDuration(duration)}, which exceeds the 120-minute maximum.`,
-      );
-    }
-
-    const overlap = overlapsWith(startMin, endMin, room.bookings);
-    if (overlap) {
-      reasons.push(
-        `Overlaps with an existing booking (${overlap.start}–${overlap.end}, ${overlap.purpose}).`,
-      );
-    }
-  }
-
-  if (reasons.length > 0) {
-    return { status: "unavailable", reasons };
-  }
-  return { status: "available" };
-}
 
 export default function App() {
   const [selectedRoomId, setSelectedRoomId] = useState<string>(ROOMS[0].id);
