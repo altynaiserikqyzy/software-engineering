@@ -1,4 +1,4 @@
-import type { Room } from "@/lib/availability";
+import type { Room } from "@/lib/types";
 
 // Fictional room data defined in source code.
 // To change a room's blocked status or bookings, edit this array directly.
