@@ -150,6 +150,15 @@ describe("AC4 — overlap and touching endpoints", () => {
     ];
     expect(overlapsWith(toMinutes("11:00"), toMinutes("12:00"), bookings)).toBeNull();
   });
+
+  // Boundary: one-minute overlap must be rejected.
+  it("rejects a one-minute overlap (10:00–11:00 existing, 10:59–11:30 requested)", () => {
+    const res = checkAvailability("10:59", "11:30", 9 * 60, openRoom);
+    expect(isUnavailable(res)).toBe(true);
+    if (isUnavailable(res)) {
+      expect(res.reasons.some((r) => r.includes("Overlaps with an existing booking"))).toBe(true);
+    }
+  });
 });
 
 // AC5: valid time range; end must be later than start; within 00:00–24:00.

@@ -47,6 +47,20 @@ describe("F1 — capacity filter", () => {
   it("matchesFilters returns false for a room below the capacity", () => {
     expect(matchesFilters(filterRoomsFixture[0], { attendees: 15, requiredEquipment: [] })).toBe(false);
   });
+
+  // Boundary: exact capacity must be accepted (room.capacity == attendees).
+  it("accepts a room whose capacity exactly equals the requested attendees", () => {
+    // f2 has capacity 30; requesting exactly 30 should match.
+    expect(matchesFilters(filterRoomsFixture[1], { attendees: 30, requiredEquipment: [] })).toBe(true);
+    const res = filterRooms(filterRoomsFixture, { attendees: 30, requiredEquipment: [] });
+    expect(res.map((r) => r.id)).toContain("f2");
+  });
+
+  // Boundary: one above capacity must be rejected.
+  it("rejects a room whose capacity is one below the requested attendees", () => {
+    // f2 has capacity 30; requesting 31 should not match.
+    expect(matchesFilters(filterRoomsFixture[1], { attendees: 31, requiredEquipment: [] })).toBe(false);
+  });
 });
 
 // F2: room must contain all required equipment.
