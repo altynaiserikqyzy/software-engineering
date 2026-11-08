@@ -3,13 +3,16 @@ import {
   checkAvailability,
   overlapsWith,
   toMinutes,
+  filterRooms,
+  matchesFilters,
   MAX_MINUTES,
   type Booking,
   type Room,
 } from "@/lib/availability";
+import { ROOMS } from "@/lib/rooms";
 
 // Controlled fixtures used to exercise the rule logic in isolation.
-// These mirror the shape of the ROOMS data in App.tsx but are owned by the test
+// These mirror the shape of the ROOMS data in rooms.ts but are owned by the test
 // so that booking data is never mutated by tests.
 
 const openRoom: Room = {
@@ -17,7 +20,9 @@ const openRoom: Room = {
   name: "T-OPEN",
   building: "Test Building",
   floor: 1,
-  blocked: false,
+  capacity: 20,
+  equipment: ["Projector", "Whiteboard"],
+  isBlocked: false,
   bookings: [
     { id: "x1", start: "10:00", end: "11:00", bookedBy: "Test", purpose: "Block A" },
   ],
@@ -28,9 +33,19 @@ const blockedRoom: Room = {
   name: "T-BLOCKED",
   building: "Test Building",
   floor: 1,
-  blocked: true,
+  capacity: 20,
+  equipment: ["Projector"],
+  isBlocked: true,
   bookings: [],
 };
+
+// Small catalog for filter tests.
+const filterRoomsFixture: readonly Room[] = [
+  { ...openRoom, id: "f1", name: "F1", capacity: 10, equipment: ["Whiteboard"], isBlocked: false, bookings: [] },
+  { ...openRoom, id: "f2", name: "F2", capacity: 30, equipment: ["Projector", "Video Conferencing"], isBlocked: false, bookings: [] },
+  { ...openRoom, id: "f3", name: "F3", capacity: 50, equipment: ["Projector", "Smartboard", "Audio System"], isBlocked: false, bookings: [] },
+  { ...blockedRoom, id: "f4", name: "F4", capacity: 40, equipment: ["Projector", "Whiteboard"], isBlocked: true, bookings: [] },
+];
 
 // "now" expressed as minutes since midnight. 16:49 => 16*60 + 49.
 const NOW_16_49 = 16 * 60 + 49;
@@ -195,14 +210,145 @@ describe("unchanged fixtures / constants", () => {
   });
 
   it("the controlled open-room fixture has its single booking intact", () => {
-    expect(openRoom.blocked).toBe(false);
+    expect(openRoom.isBlocked).toBe(false);
     expect(openRoom.bookings).toHaveLength(1);
     expect(openRoom.bookings[0].start).toBe("10:00");
     expect(openRoom.bookings[0].end).toBe("11:00");
   });
 
   it("the controlled blocked-room fixture is blocked with no bookings", () => {
-    expect(blockedRoom.blocked).toBe(true);
+    expect(blockedRoom.isBlocked).toBe(true);
     expect(blockedRoom.bookings).toHaveLength(0);
+  });
+});
+
+// ---- F1–F4: Room filtering ----
+
+// F1: capacity must be >= requested attendees.
+describe("F1 — capacity filter", () => {
+  it("returns rooms that meet or exceed the requested capacity", () => {
+    const res = filterRooms(filterRoomsFixture, { attendees: 25, requiredEquipment: [] });
+    expect(res.map((r) => r.id)).toEqual(["f2", "f3"]);
+  });
+
+  it("returns all non-blocked rooms when attendees is 0", () => {
+    const res = filterRooms(filterRoomsFixture, { attendees: 0, requiredEquipment: [] });
+    expect(res.map((r) => r.id)).toEqual(["f1", "f2", "f3"]);
+  });
+
+  it("matchesFilters returns false for a room below the capacity", () => {
+    expect(matchesFilters(filterRoomsFixture[0], { attendees: 15, requiredEquipment: [] })).toBe(false);
+  });
+});
+
+// F2: room must contain all required equipment.
+describe("F2 — equipment filter", () => {
+  it("returns only rooms that have all required equipment", () => {
+    const res = filterRooms(filterRoomsFixture, {
+      attendees: 0,
+      requiredEquipment: ["Projector", "Audio System"],
+    });
+    expect(res.map((r) => r.id)).toEqual(["f3"]);
+  });
+
+  it("returns all non-blocked rooms when no equipment is required", () => {
+    const res = filterRooms(filterRoomsFixture, { attendees: 0, requiredEquipment: [] });
+    expect(res).toHaveLength(3);
+  });
+
+  it("excludes a room missing one of multiple required items", () => {
+    expect(
+      matchesFilters(filterRoomsFixture[1], {
+        attendees: 0,
+        requiredEquipment: ["Projector", "Smartboard"],
+      }),
+    ).toBe(false);
+  });
+});
+
+// F3: blocked rooms are always excluded from the filtered set.
+describe("F3 — blocked rooms excluded", () => {
+  it("never returns a blocked room even if capacity and equipment match", () => {
+    const res = filterRooms(filterRoomsFixture, {
+      attendees: 35,
+      requiredEquipment: ["Projector", "Whiteboard"],
+    });
+    // f4 matches capacity and equipment but is blocked.
+    expect(res.find((r) => r.id === "f4")).toBeUndefined();
+  });
+
+  it("matchesFilters returns false for a blocked room", () => {
+    expect(matchesFilters(filterRoomsFixture[3], { attendees: 0, requiredEquipment: [] })).toBe(false);
+  });
+});
+
+// F4: empty state — when no rooms match, filterRooms returns an empty array.
+describe("F4 — empty result when no rooms match", () => {
+  it("returns an empty array when no room satisfies the criteria", () => {
+    const res = filterRooms(filterRoomsFixture, {
+      attendees: 100,
+      requiredEquipment: [],
+    });
+    expect(res).toEqual([]);
+  });
+
+  it("returns an empty array when required equipment no room has", () => {
+    const res = filterRooms(filterRoomsFixture, {
+      attendees: 0,
+      requiredEquipment: ["Nonexistent Device"],
+    });
+    expect(res).toEqual([]);
+  });
+});
+
+// Combined F1 + F2 + F3 intersection.
+describe("F1+F2+F3 combined filtering", () => {
+  it("intersects capacity, equipment, and blocked constraints", () => {
+    const res = filterRooms(filterRoomsFixture, {
+      attendees: 30,
+      requiredEquipment: ["Projector"],
+    });
+    // f2 (30, Projector+VC) and f3 (50, Projector+Smartboard+Audio) qualify.
+    // f4 has Projector and capacity 40 but is blocked.
+    expect(res.map((r) => r.id)).toEqual(["f2", "f3"]);
+  });
+});
+
+// ---- ROOMS fixture integrity (production data) ----
+
+describe("ROOMS production fixture integrity", () => {
+  it("contains at least four rooms", () => {
+    expect(ROOMS.length).toBeGreaterThanOrEqual(4);
+  });
+
+  it("every room has all required fields", () => {
+    for (const r of ROOMS) {
+      expect(typeof r.id).toBe("string");
+      expect(typeof r.name).toBe("string");
+      expect(typeof r.building).toBe("string");
+      expect(typeof r.floor).toBe("number");
+      expect(typeof r.capacity).toBe("number");
+      expect(Array.isArray(r.equipment)).toBe(true);
+      expect(typeof r.isBlocked).toBe("boolean");
+      expect(Array.isArray(r.bookings)).toBe(true);
+    }
+  });
+
+  it("every booking has start, end, bookedBy, and purpose", () => {
+    for (const r of ROOMS) {
+      for (const b of r.bookings) {
+        expect(typeof b.id).toBe("string");
+        expect(typeof b.start).toBe("string");
+        expect(typeof b.end).toBe("string");
+        expect(typeof b.bookedBy).toBe("string");
+        expect(typeof b.purpose).toBe("string");
+      }
+    }
+  });
+
+  it("has exactly one blocked room (A-102)", () => {
+    const blocked = ROOMS.filter((r) => r.isBlocked);
+    expect(blocked).toHaveLength(1);
+    expect(blocked[0].id).toBe("a-102");
   });
 });

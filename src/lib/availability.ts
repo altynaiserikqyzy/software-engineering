@@ -1,18 +1,25 @@
 export type Booking = {
-  id: string;
-  start: string; // "HH:MM"
-  end: string; // "HH:MM"
-  bookedBy: string;
-  purpose: string;
+  readonly id: string;
+  readonly start: string; // "HH:MM"
+  readonly end: string; // "HH:MM"
+  readonly bookedBy: string;
+  readonly purpose: string;
 };
 
 export type Room = {
-  id: string;
-  name: string;
-  building: string;
-  floor: number;
-  blocked: boolean;
-  bookings: Booking[];
+  readonly id: string;
+  readonly name: string;
+  readonly building: string;
+  readonly floor: number;
+  readonly capacity: number;
+  readonly equipment: readonly string[];
+  readonly isBlocked: boolean;
+  readonly bookings: readonly Booking[];
+};
+
+export type FilterCriteria = {
+  attendees: number;
+  requiredEquipment: readonly string[];
 };
 
 export type Result =
@@ -21,6 +28,13 @@ export type Result =
 
 export const MAX_MINUTES = 120;
 export const DAY_MINUTES = 24 * 60;
+export const EQUIPMENT_OPTIONS = [
+  "Projector",
+  "Whiteboard",
+  "Video Conferencing",
+  "Smartboard",
+  "Audio System",
+] as const;
 
 export function toMinutes(time: string): number {
   if (!time || !time.includes(":")) return NaN;
@@ -38,7 +52,11 @@ export function formatDuration(mins: number): string {
 }
 
 // Overlap: reject if start < otherEnd AND end > otherStart. Touching endpoints allowed.
-export function overlapsWith(startMin: number, endMin: number, bookings: Booking[]): Booking | null {
+export function overlapsWith(
+  startMin: number,
+  endMin: number,
+  bookings: readonly Booking[],
+): Booking | null {
   for (const b of bookings) {
     const bStart = toMinutes(b.start);
     const bEnd = toMinutes(b.end);
@@ -58,7 +76,7 @@ export function checkAvailability(
 ): Result {
   const reasons: string[] = [];
 
-  if (room.blocked) {
+  if (room.isBlocked) {
     reasons.push("This room is currently blocked and cannot be booked.");
   }
 
@@ -112,4 +130,40 @@ export function checkAvailability(
     return { status: "unavailable", reasons };
   }
   return { status: "available" };
+}
+
+// F1: capacity must be >= requested attendees.
+// F2: room must contain all required equipment.
+// F3: blocked rooms are always excluded from the "available" filtered set.
+export function filterRooms(
+  rooms: readonly Room[],
+  criteria: FilterCriteria,
+): Room[] {
+  const required = new Set(criteria.requiredEquipment);
+  return rooms.filter((room) => {
+    if (room.isBlocked) return false;
+    if (room.capacity < criteria.attendees) return false;
+    if (required.size > 0) {
+      const roomEq = new Set(room.equipment);
+      for (const item of required) {
+        if (!roomEq.has(item)) return false;
+      }
+    }
+    return true;
+  });
+}
+
+// Checks whether a room satisfies all filter criteria (including blocked).
+// Used to determine whether a room was filtered out vs. failed availability.
+export function matchesFilters(room: Room, criteria: FilterCriteria): boolean {
+  if (room.isBlocked) return false;
+  if (room.capacity < criteria.attendees) return false;
+  const required = new Set(criteria.requiredEquipment);
+  if (required.size > 0) {
+    const roomEq = new Set(room.equipment);
+    for (const item of required) {
+      if (!roomEq.has(item)) return false;
+    }
+  }
+  return true;
 }
