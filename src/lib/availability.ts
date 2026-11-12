@@ -11,9 +11,8 @@ export const EQUIPMENT_OPTIONS = [
 ] as const;
 
 export function toMinutes(time: string): number {
-  if (!time || !time.includes(":")) return NaN;
+  if (!/^\d+:\d+$/.test(time)) return NaN;
   const [h, m] = time.split(":").map(Number);
-  if (Number.isNaN(h) || Number.isNaN(m)) return NaN;
   return h * 60 + m;
 }
 
@@ -88,7 +87,7 @@ export function checkAvailability(
     const duration = endMin - startMin;
     if (duration > MAX_MINUTES) {
       reasons.push(
-        `Requested duration is ${formatDuration(duration)}, which exceeds the 120-minute maximum.`,
+        `Requested duration is ${formatDuration(duration)}, which exceeds the ${MAX_MINUTES}-minute maximum.`,
       );
     }
 
