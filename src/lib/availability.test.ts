@@ -58,6 +58,11 @@ describe("toMinutes", () => {
     expect(toMinutes("abc")).toBeNaN();
     expect(toMinutes("9")).toBeNaN();
   });
+
+  // Risk C1: an hour with a missing minute component must not silently parse.
+  it("returns NaN for a time missing its minute component (10:)", () => {
+    expect(toMinutes("10:")).toBeNaN();
+  });
 });
 
 // AC1: booking start must be strictly later than the current time.
