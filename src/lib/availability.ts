@@ -10,8 +10,14 @@ export const EQUIPMENT_OPTIONS = [
   "Audio System",
 ] as const;
 
+export const TIME_RE = /^\d+:\d+$/;
+
+export function isValidTime(time: string): boolean {
+  return TIME_RE.test(time);
+}
+
 export function toMinutes(time: string): number {
-  if (!/^\d+:\d+$/.test(time)) return NaN;
+  if (!isValidTime(time)) return NaN;
   const [h, m] = time.split(":").map(Number);
   return h * 60 + m;
 }

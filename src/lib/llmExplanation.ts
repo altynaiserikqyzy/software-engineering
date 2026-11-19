@@ -1,3 +1,4 @@
+import { isValidTime } from "@/lib/availability";
 import type { ReasonCode, Result } from "@/lib/types";
 
 // Mock LLM adapter. Takes the structured Result produced by the deterministic
@@ -15,8 +16,6 @@ export type ExplanationInput = {
 export type ExplanationOutput =
   | { ok: true; explanation: string }
   | { ok: false; error: string };
-
-const TIME_RE = /^\d{2}:\d{2}$/;
 
 const CODE_LABELS: Record<ReasonCode, string> = {
   missing_times: "both a start and an end time are needed",
@@ -39,7 +38,7 @@ function validateInput(input: ExplanationInput): string | null {
   if (typeof input.roomName !== "string" || input.roomName.trim().length === 0) {
     return "A room name is required to explain availability.";
   }
-  if (!TIME_RE.test(input.start) || !TIME_RE.test(input.end)) {
+  if (!isValidTime(input.start) || !isValidTime(input.end)) {
     return "Start and end times must be in HH:MM format.";
   }
   const result = input.result;
@@ -72,6 +71,7 @@ function validateOutput(explanation: string): string | null {
 }
 
 function humanList(items: readonly string[]): string {
+  if (items.length === 0) return "";
   if (items.length === 1) return items[0];
   if (items.length === 2) return `${items[0]} and ${items[1]}`;
   return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;

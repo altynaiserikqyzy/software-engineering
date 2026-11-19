@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CheckCircle2, XCircle, ShieldAlert, MessageSquareText, Sparkles } from "lucide-react";
 import type { Result } from "@/lib/types";
 import { explainAvailability } from "@/lib/llmExplanation";
@@ -14,6 +14,13 @@ export function AvailabilityResult({ result, roomName, start, end }: Availabilit
   const [explanation, setExplanation] = useState<string | null>(null);
   const [explanationError, setExplanationError] = useState<string | null>(null);
   const [isExplaining, setIsExplaining] = useState(false);
+
+  // Clear any stale explanation when the verdict changes so a new check never
+  // shows an explanation produced for the previous result.
+  useEffect(() => {
+    setExplanation(null);
+    setExplanationError(null);
+  }, [result]);
 
   const handleExplain = () => {
     setIsExplaining(true);

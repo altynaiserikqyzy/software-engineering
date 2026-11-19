@@ -46,9 +46,28 @@ describe("explainAvailability — input validation", () => {
   });
 
   it("rejects malformed time strings", () => {
-    const out = explainAvailability({ ...availableInput(), start: "9:0" });
+    const out = explainAvailability({ ...availableInput(), start: "abc" });
     expect(out.ok).toBe(false);
     if (!out.ok) expect(out.error).toContain("HH:MM");
+  });
+
+  // Regression: the adapter must accept any time the checker accepts. The
+  // checker validates with /^\d+:\d+$/ (e.g. "9:00"), so the adapter must not
+  // reject single-digit-hour inputs.
+  it("accepts a single-digit-hour time like '9:00' that the checker accepts", () => {
+    const result = checkAvailability("9:00", "10:00", 8 * 60, openRoom);
+    expect(result.status).toBe("available");
+    const out = explainAvailability({
+      roomName: "T-OPEN",
+      start: "9:00",
+      end: "10:00",
+      result,
+    });
+    expect(out.ok).toBe(true);
+    if (out.ok) {
+      expect(out.explanation).toContain("9:00");
+      expect(out.explanation).toContain("10:00");
+    }
   });
 
   it("rejects a malformed result object", () => {
