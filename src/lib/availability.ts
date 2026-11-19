@@ -1,4 +1,4 @@
-import type { Booking, Room, Result } from "@/lib/types";
+import type { Booking, ReasonCode, Room, Result } from "@/lib/types";
 
 export const MAX_MINUTES = 120;
 export const DAY_MINUTES = 24 * 60;
@@ -48,38 +48,52 @@ export function checkAvailability(
   room: Room,
 ): Result {
   const reasons: string[] = [];
+  const codes: ReasonCode[] = [];
 
   if (room.isBlocked) {
     reasons.push("This room is currently blocked and cannot be booked.");
+    codes.push("room_blocked");
   }
 
   if (!start || !end) {
-    return { status: "unavailable", reasons: ["Please enter both a start and end time."] };
+    return {
+      status: "unavailable",
+      reasons: ["Please enter both a start and end time."],
+      codes: ["missing_times"],
+    };
   }
 
   const startMin = toMinutes(start);
   const endMin = toMinutes(end);
 
   if (Number.isNaN(startMin) || Number.isNaN(endMin)) {
-    return { status: "unavailable", reasons: ["One or both times are not valid."] };
+    return {
+      status: "unavailable",
+      reasons: ["One or both times are not valid."],
+      codes: ["invalid_times"],
+    };
   }
 
   // Range / basic validity checks (AC5, AC1).
   let rangeValid = true;
   if (startMin < 0 || startMin > DAY_MINUTES) {
     reasons.push("Start time must be within the same day (00:00–24:00).");
+    codes.push("start_out_of_range");
     rangeValid = false;
   }
   if (endMin < 0 || endMin > DAY_MINUTES) {
     reasons.push("End time must be within the same day (00:00–24:00).");
+    codes.push("end_out_of_range");
     rangeValid = false;
   }
   if (endMin <= startMin) {
     reasons.push("End time must be later than the start time.");
+    codes.push("reversed_interval");
     rangeValid = false;
   }
   if (startMin <= nowMin) {
     reasons.push("Start time must be strictly later than the current time.");
+    codes.push("start_in_past");
   }
 
   // Only evaluate duration and overlap when the time range is structurally valid.
@@ -89,6 +103,7 @@ export function checkAvailability(
       reasons.push(
         `Requested duration is ${formatDuration(duration)}, which exceeds the ${MAX_MINUTES}-minute maximum.`,
       );
+      codes.push("duration_exceeded");
     }
 
     const overlap = overlapsWith(startMin, endMin, room.bookings);
@@ -96,11 +111,12 @@ export function checkAvailability(
       reasons.push(
         `Overlaps with an existing booking (${overlap.start}–${overlap.end}, ${overlap.purpose}).`,
       );
+      codes.push("booking_overlap");
     }
   }
 
   if (reasons.length > 0) {
-    return { status: "unavailable", reasons };
+    return { status: "unavailable", reasons, codes };
   }
   return {
     status: "available",

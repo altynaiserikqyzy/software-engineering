@@ -147,7 +147,14 @@ export default function App() {
                   onCheck={handleCheck}
                   onReset={handleReset}
                 />
-                {result && <AvailabilityResult result={result} />}
+                {result && (
+                  <AvailabilityResult
+                    result={result}
+                    roomName={effectiveRoom.name}
+                    start={start}
+                    end={end}
+                  />
+                )}
               </>
             ) : (
               /* F4: Empty state — no rooms match the active filters. */

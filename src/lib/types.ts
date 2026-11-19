@@ -24,4 +24,17 @@ export type FilterCriteria = {
 
 export type Result =
   | { status: "available"; summary: string }
-  | { status: "unavailable"; reasons: string[] };
+  | { status: "unavailable"; reasons: string[]; codes: ReasonCode[] };
+
+// Stable machine-readable identifiers for each unavailability rule. The mock
+// LLM adapter consumes these instead of parsing human-readable reason text.
+export type ReasonCode =
+  | "missing_times"
+  | "invalid_times"
+  | "start_in_past"
+  | "start_out_of_range"
+  | "end_out_of_range"
+  | "reversed_interval"
+  | "duration_exceeded"
+  | "booking_overlap"
+  | "room_blocked";
