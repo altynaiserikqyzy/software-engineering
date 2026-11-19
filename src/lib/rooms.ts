@@ -53,7 +53,7 @@ export const ROOMS: readonly Room[] = [
     floor: 3,
     capacity: 12,
     equipment: ["Whiteboard", "Video Conferencing"],
-    isBlocked: false,
+    isBlocked: true,
     bookings: [
       { id: "b9", start: "10:00", end: "11:30", bookedBy: "Research Team", purpose: "Literature review" },
       { id: "b10", start: "15:00", end: "16:00", bookedBy: "Book Club", purpose: "Weekly meeting" },
