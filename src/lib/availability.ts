@@ -102,5 +102,8 @@ export function checkAvailability(
   if (reasons.length > 0) {
     return { status: "unavailable", reasons };
   }
-  return { status: "available" };
+  return {
+    status: "available",
+    summary: `This room is free from ${start} to ${end} — it fits within the ${MAX_MINUTES}-minute limit, does not overlap any existing booking, and the room is not blocked.`,
+  };
 }

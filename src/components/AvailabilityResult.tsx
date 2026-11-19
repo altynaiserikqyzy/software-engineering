@@ -41,10 +41,7 @@ export function AvailabilityResult({ result }: AvailabilityResultProps) {
             </ul>
           )}
           {result.status === "available" && (
-            <p className="text-sm text-emerald-700 mt-1">
-              The requested slot does not overlap any existing booking, is within 120
-              minutes, falls within today's hours, and the room is not blocked.
-            </p>
+            <p className="text-sm text-emerald-700 mt-1">{result.summary}</p>
           )}
         </div>
       </div>

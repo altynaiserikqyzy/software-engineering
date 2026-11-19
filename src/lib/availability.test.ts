@@ -88,6 +88,16 @@ describe("AC1 — start strictly later than current time", () => {
     const res = checkAvailability("16:50", "17:30", NOW_16_49, openRoom);
     expect(res.status).toBe("available");
   });
+
+  // AC7: an available result carries a plain-language summary of the decision.
+  it("includes a short explanation when the slot is available", () => {
+    const res = checkAvailability("16:50", "17:30", NOW_16_49, openRoom);
+    expect(res.status).toBe("available");
+    if (res.status === "available") {
+      expect(res.summary).toContain("free from 16:50 to 17:30");
+      expect(res.summary).toContain("not blocked");
+    }
+  });
 });
 
 // AC2 (duration): max 120 minutes, exactly 120 allowed, 121 rejected.

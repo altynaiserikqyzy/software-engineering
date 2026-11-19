@@ -23,5 +23,5 @@ export type FilterCriteria = {
 };
 
 export type Result =
-  | { status: "available" }
+  | { status: "available"; summary: string }
   | { status: "unavailable"; reasons: string[] };
